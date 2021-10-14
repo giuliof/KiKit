@@ -10,7 +10,7 @@ from kikit.fab.common import *
 from kikit.common import *
 from kikit.export import gerberImpl
 
-def collectBom(components, lscsFields, ignore):
+def collectBom(components, lscsFields, ignore, ignoreFields, ignoreRule):
     bom = {}
     for c in components:
         if c["unit"] != 1:
@@ -21,6 +21,13 @@ def collectBom(components, lscsFields, ignore):
         if reference in ignore:
             continue
         if getField(c, "JLCPCB_IGNORE") is not None and getField(c, "JLCPCB_IGNORE") != "":
+            continue
+        isValid = True
+        for fieldName in ignoreFields:
+            value = getField(c, fieldName)
+            if value is None or ignoreRule(value):
+                isValid = False
+        if not isValid:
             continue
         orderCode = None
         for fieldName in lscsFields:
@@ -69,7 +76,9 @@ def exportJlcpcb(board, outputdir, assembly, schematic, ignore, field,
     correctionFields = [x.strip() for x in corrections.split(",")]
     components = extractComponents(schematic)
     ordercodeFields = [x.strip() for x in field.split(",")]
-    bom = collectBom(components, ordercodeFields, refsToIgnore)
+    ignoreFields = ['Mount']
+    ignoreRule = lambda x : True if x != 'y' else False
+    bom = collectBom(components, ordercodeFields, refsToIgnore, ignoreFields, ignoreRule)
 
     posData = collectPosData(loadedBoard, correctionFields,
         bom=components, posFilter=isNonVirtual)
